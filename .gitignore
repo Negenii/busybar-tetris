@@ -1,0 +1,3 @@
+app/tests/tetris_render_test
+app/tests/*.ppm
+dist/
