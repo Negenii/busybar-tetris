@@ -587,6 +587,11 @@ void tetris_render(
         }
     }
     if(six) {
+        /* the seconds already tick; a blinking colon beside them is a second
+         * thing counting the same second, so it holds steady */
+        TetrisLook steady = *look;
+        if(steady.colon == TetrisColonBlink) steady.colon = TetrisColonSolid;
+        look = &steady;
         draw_colon_at(rgb, look, ms, clock_set, colon_x6[0]);
         draw_colon_at(rgb, look, ms, clock_set, colon_x6[1]);
     } else {

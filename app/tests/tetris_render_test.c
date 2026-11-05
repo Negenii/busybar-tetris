@@ -190,6 +190,27 @@ static void test_unset_clock_shows_zeros(void) {
     CHECK(!lit(frame, 35, 5), "colon lit while the clock is unset");
 }
 
+/* with seconds on, the colons hold steady even when Blink is chosen; without, they still blink */
+static void test_colon_steady_with_seconds(void) {
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsQuick};
+    TetrisState st;
+    tetris_state_reset(&st);
+    run(&st, &look, 10 * 3600, 0, 2000);
+    tetris_render(frame, &st, &look, 10 * 3600 + 3, 700, true);
+    CHECK(lit(frame, 23, 5) && lit(frame, 47, 5), "a colon is dark at 700 ms with seconds on");
+
+    look.seconds = TetrisSecondsOff;
+    tetris_state_reset(&st);
+    run(&st, &look, 10 * 3600, 0, 2000);
+    tetris_render(frame, &st, &look, 10 * 3600 + 3, 700, true);
+    CHECK(!lit(frame, 35, 5), "hh:mm colon did not blink");
+
+    look.seconds = TetrisSecondsQuick;
+    look.colon = TetrisColonOff;
+    tetris_render(frame, &st, &look, 10 * 3600 + 3, 200, true);
+    CHECK(!lit(frame, 23, 5), "Off colon lit with seconds on");
+}
+
 int main(int argc, char** argv) {
     test_covers();
     test_same_as_tc002(argc > 1 ? argv[1] : "covers_tc002.txt");
@@ -198,6 +219,7 @@ int main(int argc, char** argv) {
     test_settles_while_told_again();
     test_twelve_hour();
     test_unset_clock_shows_zeros();
+    test_colon_steady_with_seconds();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);
