@@ -209,6 +209,22 @@ const TetrisCover* tetris_covers(void) {
 #define TOP       ((TETRIS_PANEL_H - TETRIS_DIGIT_H) / 2)
 #define COLON_X   (LEFT + 2 * TETRIS_DIGIT_W + DIGIT_GAP + COLON_GAP)
 
+/* SPIKE: hh:mm:ss, six digits of six, the same gaps, two colons: 62 wide, 5 dark either side */
+#define LEFT6 ((TETRIS_PANEL_W - (6 * TETRIS_DIGIT_W + 3 * DIGIT_GAP + 2 * (2 * COLON_GAP + COLON_W))) / 2)
+#define PAIR6 (2 * TETRIS_DIGIT_W + DIGIT_GAP + 2 * COLON_GAP + COLON_W)
+static const int digit_x6[6] = {
+    LEFT6,
+    LEFT6 + TETRIS_DIGIT_W + DIGIT_GAP,
+    LEFT6 + PAIR6,
+    LEFT6 + PAIR6 + TETRIS_DIGIT_W + DIGIT_GAP,
+    LEFT6 + 2 * PAIR6,
+    LEFT6 + 2 * PAIR6 + TETRIS_DIGIT_W + DIGIT_GAP,
+};
+static const int colon_x6[2] = {
+    LEFT6 + 2 * TETRIS_DIGIT_W + DIGIT_GAP + COLON_GAP,
+    LEFT6 + PAIR6 + 2 * TETRIS_DIGIT_W + DIGIT_GAP + COLON_GAP,
+};
+
 static const int digit_x[4] = {
     LEFT,
     LEFT + TETRIS_DIGIT_W + DIGIT_GAP,
@@ -287,6 +303,51 @@ static const TetrisCover* cover_of(const TetrisColumn* col) {
     return all ? &all[(col->value > 9U) ? 9U : col->value] : NULL;
 }
 
+/* SPIKE: the seconds' quick builds. A wave is every piece whose bottom row is
+ * in the same band, counted from the floor; a wave's pieces fall together. */
+static bool fast_style(uint8_t style) {
+    return (style == TetrisSecondsQuick) || (style == TetrisSecondsQuicker) ||
+           (style == TetrisSecondsSnap);
+}
+
+static uint8_t wave_band(uint8_t style) {
+    return (style == TetrisSecondsQuick) ? 2U : (style == TetrisSecondsQuicker) ? 3U : TETRIS_DIGIT_H;
+}
+
+static uint32_t wave_ms(uint8_t style) {
+    return (style == TetrisSecondsQuick) ? 70U : (style == TetrisSecondsQuicker) ? 60U : 150U;
+}
+
+static uint8_t wave_of(const TetrisPiece* p, uint8_t style) {
+    return (uint8_t)((TETRIS_DIGIT_H - 1U - tetris_piece_bottom(p)) / wave_band(style));
+}
+
+static uint8_t last_wave(const TetrisCover* cover, uint8_t style) {
+    uint8_t m = 0U;
+    for(uint8_t i = 0U; i < cover->count; i++) {
+        const uint8_t w = wave_of(&cover->pieces[i], style);
+        if(w > m) m = w;
+    }
+    return m;
+}
+
+static void draw_fast(uint8_t* rgb, const TetrisLook* look, const TetrisColumn* col, int ox, uint8_t style) {
+    const TetrisCover* cover = cover_of(col);
+    if(!cover) return;
+    for(uint8_t i = 0U; i < cover->count; i++) {
+        const TetrisPiece* p = &cover->pieces[i];
+        const uint8_t w = wave_of(p, style);
+        if((col->phase == TetrisPhaseStill) || (w < col->wave)) {
+            draw_piece(rgb, look, p, ox, TOP, false);
+        } else if(w == col->wave) {
+            const int travel = TOP + (int)tetris_piece_bottom(p) + 1;
+            int gone = (int)(col->at_ms * (uint32_t)travel / wave_ms(style));
+            if(gone > travel) gone = travel;
+            draw_piece(rgb, look, p, ox, TOP - travel + gone, true);
+        }
+    }
+}
+
 static void draw_column(uint8_t* rgb, const TetrisLook* look, const TetrisColumn* col, int ox) {
     const TetrisCover* cover = cover_of(col);
     if(!cover) return;
@@ -331,7 +392,7 @@ static void draw_column(uint8_t* rgb, const TetrisLook* look, const TetrisColumn
     }
 }
 
-static void draw_colon(uint8_t* rgb, const TetrisLook* look, uint32_t ms, bool lit) {
+static void draw_colon_at(uint8_t* rgb, const TetrisLook* look, uint32_t ms, bool lit, int colon_x) {
     bool on;
     switch(look->colon) {
     case TetrisColonSolid:
@@ -350,8 +411,8 @@ static void draw_colon(uint8_t* rgb, const TetrisLook* look, uint32_t ms, bool l
     /* two squares, a third of the way down and a third up, so they sit with the digits */
     for(int dy = 0; dy < 2; dy++) {
         for(int dx = 0; dx < 2; dx++) {
-            put(rgb, COLON_X + dx, TOP + 3 + dy, c);
-            put(rgb, COLON_X + dx, TOP + TETRIS_DIGIT_H - 5 + dy, c);
+            put(rgb, colon_x + dx, TOP + 3 + dy, c);
+            put(rgb, colon_x + dx, TOP + TETRIS_DIGIT_H - 5 + dy, c);
         }
     }
 }
@@ -372,17 +433,48 @@ static void column_show(TetrisColumn* col, uint8_t value) {
  * the same digit while it was still building counted as a change: it cleared,
  * rebuilt and never settled, which reads as a digit permanently a row low. The
  * digit falling out is the old one, so `value` waits until the clear is over. */
-static void column_change_to(TetrisColumn* col, uint8_t value) {
+static void column_change_to(TetrisColumn* col, uint8_t value, bool fast) {
     const uint8_t want = (value > 9U) ? 9U : value;
     if((col->value == want) || (col->next == want)) return;
     col->next = want;
-    col->phase = TetrisPhaseClearing;
     col->at_ms = 0U;
+    if(fast) {
+        /* SPIKE: no slide out; the old digit is gone and the new one lands in waves */
+        col->value = want;
+        col->landed = 0U;
+        col->wave = 0U;
+        col->phase = TetrisPhaseBuilding;
+    } else {
+        col->phase = TetrisPhaseClearing;
+    }
+}
+
+static void step_fast(TetrisColumn* col, uint8_t style, uint32_t delta_ms) {
+    if(col->phase != TetrisPhaseBuilding) return;
+    const TetrisCover* cover = cover_of(col);
+    if(!cover) return;
+    col->at_ms += delta_ms;
+    while(col->at_ms >= wave_ms(style)) {
+        col->at_ms -= wave_ms(style);
+        if(col->wave >= last_wave(cover, style)) {
+            col->phase = TetrisPhaseStill;
+            col->landed = cover->count;
+            col->at_ms = 0U;
+            return;
+        }
+        col->wave++;
+    }
 }
 
 static void step(TetrisState* state, const TetrisLook* look, uint32_t delta_ms) {
     const uint32_t pm = piece_ms(look);
-    for(int i = 0; i < 4; i++) {
+    const bool fast = fast_style(look->seconds);
+    const int n = (look->seconds == TetrisSecondsOff) ? 4 : 6;
+    for(int i = 0; i < n; i++) {
+        if((i >= 4) && fast) {
+            step_fast(&state->columns[i], look->seconds, delta_ms);
+            continue;
+        }
         TetrisColumn* col = &state->columns[i];
         switch(col->phase) {
         case TetrisPhaseClearing:
@@ -419,7 +511,7 @@ static void step(TetrisState* state, const TetrisLook* look, uint32_t delta_ms) 
 
 void tetris_state_reset(TetrisState* state) {
     memset(state, 0, sizeof(*state));
-    for(int i = 0; i < 4; i++) column_show(&state->columns[i], 0U);
+    for(int i = 0; i < 6; i++) column_show(&state->columns[i], 0U);
 }
 
 void tetris_render(
@@ -439,8 +531,17 @@ void tetris_render(
         hour = (uint8_t)(h24 % 12U);
         if(hour == 0U) hour = 12U;
     }
-    const uint8_t want[4] = {
-        (uint8_t)(hour / 10U), (uint8_t)(hour % 10U), (uint8_t)(minute / 10U), (uint8_t)(minute % 10U)};
+    const uint8_t second = (uint8_t)(day % 60);
+    const uint8_t want[6] = {
+        (uint8_t)(hour / 10U),
+        (uint8_t)(hour % 10U),
+        (uint8_t)(minute / 10U),
+        (uint8_t)(minute % 10U),
+        (uint8_t)(second / 10U),
+        (uint8_t)(second % 10U)};
+    const bool six = look->seconds != TetrisSecondsOff;
+    const int n = six ? 6 : 4;
+    const bool fast = fast_style(look->seconds);
 
     const int64_t now = local_s * 1000 + (int64_t)ms;
     if(!state->started) {
@@ -448,7 +549,7 @@ void tetris_render(
         state->last_ms = now;
         /* the first frame assembles rather than appearing: it is the nicest
          * moment this face has. staggered, so four digits do not fall in lockstep */
-        for(int i = 0; i < 4; i++) {
+        for(int i = 0; i < 6; i++) {
             TetrisColumn* col = &state->columns[i];
             column_show(col, clock_set ? want[i] : 0U);
             col->landed = 0U;
@@ -469,16 +570,26 @@ void tetris_render(
     const bool blank_lead = !look->hour24 && (want[0] == 0U);
 
     if(clock_set) {
-        for(int i = 0; i < 4; i++) {
+        for(int i = 0; i < n; i++) {
             if((i == 0) && blank_lead) continue;
-            column_change_to(&state->columns[i], want[i]);
+            column_change_to(&state->columns[i], want[i], fast && (i >= 4));
         }
     }
     step(state, look, (uint32_t)delta);
 
-    for(int i = 0; i < 4; i++) {
+    for(int i = 0; i < n; i++) {
         if((i == 0) && blank_lead && (state->columns[0].phase == TetrisPhaseStill)) continue;
-        draw_column(rgb, look, &state->columns[i], digit_x[i]);
+        const int x = six ? digit_x6[i] : digit_x[i];
+        if((i >= 4) && fast && (state->columns[i].phase != TetrisPhaseClearing)) {
+            draw_fast(rgb, look, &state->columns[i], x, look->seconds);
+        } else {
+            draw_column(rgb, look, &state->columns[i], x);
+        }
     }
-    draw_colon(rgb, look, ms, clock_set);
+    if(six) {
+        draw_colon_at(rgb, look, ms, clock_set, colon_x6[0]);
+        draw_colon_at(rgb, look, ms, clock_set, colon_x6[1]);
+    } else {
+        draw_colon_at(rgb, look, ms, clock_set, COLON_X);
+    }
 }

@@ -91,11 +91,22 @@ typedef enum {
     TetrisColonCount,
 } TetrisColon;
 
+/* SPIKE: how the seconds are shown */
+typedef enum {
+    TetrisSecondsOff = 0, /* hh:mm only, the TC002 layout */
+    TetrisSecondsClassic, /* seconds animate exactly like the minutes */
+    TetrisSecondsQuick, /* no slide out; pieces land in 2-row waves, ~70 ms each */
+    TetrisSecondsQuicker, /* no slide out; 3-row waves, ~60 ms each */
+    TetrisSecondsSnap, /* no slide out; the whole digit drops in at once, ~150 ms */
+    TetrisSecondsCount,
+} TetrisSeconds;
+
 typedef struct {
     uint8_t colour; /* TetrisColour */
     bool hour24; /* off drops the leading zero on the hour */
     uint8_t speed; /* 0 slow .. 255 brisk; 128 is about a second a digit */
     uint8_t colon; /* TetrisColon */
+    uint8_t seconds; /* TetrisSeconds (spike) */
 } TetrisLook;
 
 typedef enum {
@@ -110,11 +121,12 @@ typedef struct {
     uint8_t phase; /* TetrisPhase */
     uint8_t landed; /* how many of the cover's pieces have landed */
     uint32_t at_ms; /* ms into the current piece's fall, or into the clear */
+    uint8_t wave; /* fast builds: the wave falling now (spike) */
 } TetrisColumn;
 
 /* Stateful: a piece halfway down stays halfway down between frames. */
 typedef struct {
-    TetrisColumn columns[4];
+    TetrisColumn columns[6];
     bool started;
     int64_t last_ms;
 } TetrisState;

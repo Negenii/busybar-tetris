@@ -123,7 +123,7 @@ static void test_same_as_tc002(const char* fixture) {
 }
 
 static void test_layout_and_settle(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonSolid};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonSolid, TetrisSecondsOff};
     TetrisState st;
     tetris_state_reset(&st);
     const int64_t t = 13 * 3600 + 45 * 60 + 10; /* 13:45:10 */
@@ -142,7 +142,7 @@ static void test_layout_and_settle(void) {
 }
 
 static void test_only_changed_digit_moves(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff};
     TetrisState st;
     tetris_state_reset(&st);
     const int64_t t = 12 * 3600 + 59;
@@ -161,7 +161,7 @@ static void test_only_changed_digit_moves(void) {
 
 /* the TC002 bug: being told the same digit mid-build restarted the clear forever */
 static void test_settles_while_told_again(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff};
     TetrisState st;
     tetris_state_reset(&st);
     run(&st, &look, 8 * 3600 + 30 * 60, 0, 5000);
@@ -169,7 +169,7 @@ static void test_settles_while_told_again(void) {
 }
 
 static void test_twelve_hour(void) {
-    TetrisLook look = {TetrisColourAmber, false, 255, TetrisColonOff};
+    TetrisLook look = {TetrisColourAmber, false, 255, TetrisColonOff, TetrisSecondsOff};
     TetrisState st;
     tetris_state_reset(&st);
     run(&st, &look, 21 * 3600 + 7 * 60, 0, 3000); /* 21:07 -> 9:07 */
@@ -182,7 +182,7 @@ static void test_twelve_hour(void) {
 }
 
 static void test_unset_clock_shows_zeros(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsOff};
     TetrisState st;
     tetris_state_reset(&st);
     for(uint32_t e = 0; e <= 3000; e += 33) tetris_render(frame, &st, &look, 77777 + e / 1000, e % 1000, false);
