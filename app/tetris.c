@@ -33,7 +33,7 @@
 
 #define TETRIS_SETTINGS_DIR   "/ext/apps_data/tetris"
 #define TETRIS_SETTINGS_PATH  TETRIS_SETTINGS_DIR "/settings"
-#define TETRIS_SETTINGS_MAGIC (0x3254U) /* "T2" (spike): one byte per Setup row */
+#define TETRIS_SETTINGS_MAGIC (0x3354U) /* "T3" (spike): one byte per Setup row */
 
 typedef enum {
     TetrisCustomEventBack = 1UL << 0,
@@ -53,6 +53,7 @@ typedef enum {
     TetrisSettingSpeed,
     TetrisSettingColon,
     TetrisSettingSeconds,
+    TetrisSettingAnimation,
     TetrisSettingCount,
 } TetrisSettingId;
 
@@ -61,6 +62,7 @@ static const char* tetris_hour24_labels[] = {"Off", "On"};
 static const char* tetris_speed_labels[] = {"Slowest", "Slow", "Medium", "Fast", "Fastest"};
 static const char* tetris_colon_labels[] = {"Blink", "Solid", "Off"};
 static const char* tetris_seconds_labels[] = {"Off", "Classic", "Quick", "Quicker", "Snap"};
+static const char* tetris_animation_labels[] = {"Off", "On"};
 /* The TC002 speed byte for each step; Medium is its default. */
 static const uint8_t tetris_speed_bytes[] = {0U, 64U, 128U, 192U, 255U};
 
@@ -104,6 +106,7 @@ static void tetris_apply_look(Tetris* instance) {
     instance->look.speed = tetris_speed_bytes[s[TetrisSettingSpeed].value];
     instance->look.colon = s[TetrisSettingColon].value;
     instance->look.seconds = s[TetrisSettingSeconds].value;
+    instance->look.still = s[TetrisSettingAnimation].value == 0U;
 }
 
 /* A magic, then one byte per row. Anything else is the defaults. */
@@ -337,15 +340,23 @@ static void tetris_handle_key(Tetris* instance, InputKey key) {
             tetris_leave_run(instance);
             return;
         }
-        /* A tap of the wheel steps the colour without leaving the clock. A
-         * colour change is the same time, so the digits stay where they are. */
+        /* A tap of the wheel turns the animation on or off; turning it steps
+         * the colour either way. Neither is a different time, so the digits
+         * stay where they are (switching animation off lands a falling one). */
         if(key == InputKeyOk) {
+            AppShellSetting* anim = &instance->setting_items[TetrisSettingAnimation];
+            anim->value = (uint8_t)((anim->value + 1U) % anim->count);
+        } else if((key == InputKeyUp) || (key == InputKeyDown)) {
             AppShellSetting* colour = &instance->setting_items[TetrisSettingColour];
-            colour->value = (uint8_t)((colour->value + 1U) % colour->count);
-            tetris_apply_look(instance);
-            tetris_settings_save(instance);
-            tetris_draw(instance);
+            colour->value = (key == InputKeyUp) ?
+                                (uint8_t)((colour->value + 1U) % colour->count) :
+                                (uint8_t)((colour->value + colour->count - 1U) % colour->count);
+        } else {
+            return;
         }
+        tetris_apply_look(instance);
+        tetris_settings_save(instance);
+        tetris_draw(instance);
         return;
     }
 }
@@ -428,6 +439,8 @@ static void tetris_settings_init(Tetris* instance) {
         "Colon", tetris_colon_labels, COUNT_OF(tetris_colon_labels), TetrisColonBlink};
     s[TetrisSettingSeconds] = (AppShellSetting){
         "Seconds", tetris_seconds_labels, COUNT_OF(tetris_seconds_labels), TetrisSecondsQuick};
+    s[TetrisSettingAnimation] = (AppShellSetting){
+        "Animation", tetris_animation_labels, COUNT_OF(tetris_animation_labels), 1U};
 
     instance->settings.items = instance->setting_items;
     instance->settings.count = TetrisSettingCount;

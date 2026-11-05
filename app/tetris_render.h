@@ -107,6 +107,7 @@ typedef struct {
     uint8_t speed; /* 0 slow .. 255 brisk; 128 is about a second a digit */
     uint8_t colon; /* TetrisColon */
     uint8_t seconds; /* TetrisSeconds (spike) */
+    bool still; /* no animation: a changed digit is simply there (spike) */
 } TetrisLook;
 
 typedef enum {

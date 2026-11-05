@@ -569,7 +569,15 @@ void tetris_render(
      * what a clock on a wall does. in 24-hour mode it is a zero like any other */
     const bool blank_lead = !look->hour24 && (want[0] == 0U);
 
-    if(clock_set) {
+    if(look->still) {
+        /* no animation: whatever a column is doing, it shows its digit now.
+         * Switching animation off mid-fall lands everything at once. */
+        for(int i = 0; i < 6; i++) {
+            TetrisColumn* col = &state->columns[i];
+            const uint8_t d = clock_set ? want[i] : 0U;
+            if((col->value != d) || (col->phase != TetrisPhaseStill)) column_show(col, d);
+        }
+    } else if(clock_set) {
         for(int i = 0; i < n; i++) {
             if((i == 0) && blank_lead) continue;
             column_change_to(&state->columns[i], want[i], fast && (i >= 4));

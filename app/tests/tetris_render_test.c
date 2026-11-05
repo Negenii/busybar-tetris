@@ -123,7 +123,7 @@ static void test_same_as_tc002(const char* fixture) {
 }
 
 static void test_layout_and_settle(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonSolid, TetrisSecondsOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonSolid, TetrisSecondsOff, false};
     TetrisState st;
     tetris_state_reset(&st);
     const int64_t t = 13 * 3600 + 45 * 60 + 10; /* 13:45:10 */
@@ -142,7 +142,7 @@ static void test_layout_and_settle(void) {
 }
 
 static void test_only_changed_digit_moves(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff, false};
     TetrisState st;
     tetris_state_reset(&st);
     const int64_t t = 12 * 3600 + 59;
@@ -161,7 +161,7 @@ static void test_only_changed_digit_moves(void) {
 
 /* the TC002 bug: being told the same digit mid-build restarted the clear forever */
 static void test_settles_while_told_again(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonOff, TetrisSecondsOff, false};
     TetrisState st;
     tetris_state_reset(&st);
     run(&st, &look, 8 * 3600 + 30 * 60, 0, 5000);
@@ -169,7 +169,7 @@ static void test_settles_while_told_again(void) {
 }
 
 static void test_twelve_hour(void) {
-    TetrisLook look = {TetrisColourAmber, false, 255, TetrisColonOff, TetrisSecondsOff};
+    TetrisLook look = {TetrisColourAmber, false, 255, TetrisColonOff, TetrisSecondsOff, false};
     TetrisState st;
     tetris_state_reset(&st);
     run(&st, &look, 21 * 3600 + 7 * 60, 0, 3000); /* 21:07 -> 9:07 */
@@ -182,7 +182,7 @@ static void test_twelve_hour(void) {
 }
 
 static void test_unset_clock_shows_zeros(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsOff};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsOff, false};
     TetrisState st;
     tetris_state_reset(&st);
     for(uint32_t e = 0; e <= 3000; e += 33) tetris_render(frame, &st, &look, 77777 + e / 1000, e % 1000, false);
@@ -192,7 +192,7 @@ static void test_unset_clock_shows_zeros(void) {
 
 /* with seconds on, the colons hold steady even when Blink is chosen; without, they still blink */
 static void test_colon_steady_with_seconds(void) {
-    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsQuick};
+    TetrisLook look = {TetrisColourClassic, true, 128, TetrisColonBlink, TetrisSecondsQuick, false};
     TetrisState st;
     tetris_state_reset(&st);
     run(&st, &look, 10 * 3600, 0, 2000);
@@ -211,6 +211,25 @@ static void test_colon_steady_with_seconds(void) {
     CHECK(!lit(frame, 23, 5), "Off colon lit with seconds on");
 }
 
+/* animation off: a changed digit is simply there, and switching off mid-fall lands it */
+static void test_still(void) {
+    TetrisLook look = {TetrisColourClassic, true, 0, TetrisColonSolid, TetrisSecondsQuick, true};
+    TetrisState st;
+    tetris_state_reset(&st);
+    tetris_render(frame, &st, &look, 13 * 3600 + 45 * 60 + 27, 0, true);
+    CHECK(digit_on_panel(frame, 5, 1) && digit_on_panel(frame, 61, 7), "first still frame is not 13:45:27");
+    tetris_render(frame, &st, &look, 13 * 3600 + 45 * 60 + 28, 0, true);
+    CHECK(digit_on_panel(frame, 61, 8), "still: the next second is not there at once");
+
+    look.still = false;
+    tetris_render(frame, &st, &look, 13 * 3600 + 45 * 60 + 28, 980, true);
+    tetris_render(frame, &st, &look, 13 * 3600 + 45 * 60 + 29, 0, true);
+    CHECK(st.columns[5].phase == TetrisPhaseBuilding, "animation on did not animate the change");
+    look.still = true;
+    tetris_render(frame, &st, &look, 13 * 3600 + 45 * 60 + 29, 30, true);
+    CHECK(digit_on_panel(frame, 61, 9) && st.columns[5].phase == TetrisPhaseStill, "switching off mid-fall did not land the digit");
+}
+
 int main(int argc, char** argv) {
     test_covers();
     test_same_as_tc002(argc > 1 ? argv[1] : "covers_tc002.txt");
@@ -220,6 +239,7 @@ int main(int argc, char** argv) {
     test_twelve_hour();
     test_unset_clock_shows_zeros();
     test_colon_steady_with_seconds();
+    test_still();
 
     if(failures) {
         printf("%d check(s) failed\n", failures);
