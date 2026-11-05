@@ -33,7 +33,7 @@
 
 #define TETRIS_SETTINGS_DIR   "/ext/apps_data/tetris"
 #define TETRIS_SETTINGS_PATH  TETRIS_SETTINGS_DIR "/settings"
-#define TETRIS_SETTINGS_MAGIC (0x3354U) /* "T3" (spike): one byte per Setup row */
+#define TETRIS_SETTINGS_MAGIC (0x3454U) /* "T4" (spike): one byte per Setup row */
 
 typedef enum {
     TetrisCustomEventBack = 1UL << 0,
@@ -50,18 +50,21 @@ typedef enum {
 typedef enum {
     TetrisSettingColour,
     TetrisSettingHour24,
+    TetrisSettingSeconds,
+    TetrisSettingSecondsStyle,
     TetrisSettingSpeed,
     TetrisSettingColon,
-    TetrisSettingSeconds,
     TetrisSettingAnimation,
     TetrisSettingCount,
 } TetrisSettingId;
 
 static const char* tetris_colour_labels[] = {"Classic", "Amber", "White", "Green", "Settle"};
-static const char* tetris_hour24_labels[] = {"Off", "On"};
+static const char* tetris_hour24_labels[] = {"12h", "24h"};
 static const char* tetris_speed_labels[] = {"Slowest", "Slow", "Medium", "Fast", "Fastest"};
 static const char* tetris_colon_labels[] = {"Blink", "Solid", "Off"};
-static const char* tetris_seconds_labels[] = {"Off", "Classic", "Quick", "Quicker", "Snap"};
+static const char* tetris_seconds_labels[] = {"Hide", "Show"};
+/* the seconds' animation, in TetrisSeconds order after Off (spike) */
+static const char* tetris_seconds_style_labels[] = {"Classic", "Quick", "Quicker", "Snap"};
 static const char* tetris_animation_labels[] = {"Off", "On"};
 /* The TC002 speed byte for each step; Medium is its default. */
 static const uint8_t tetris_speed_bytes[] = {0U, 64U, 128U, 192U, 255U};
@@ -105,7 +108,9 @@ static void tetris_apply_look(Tetris* instance) {
     instance->look.hour24 = s[TetrisSettingHour24].value != 0U;
     instance->look.speed = tetris_speed_bytes[s[TetrisSettingSpeed].value];
     instance->look.colon = s[TetrisSettingColon].value;
-    instance->look.seconds = s[TetrisSettingSeconds].value;
+    instance->look.seconds = (s[TetrisSettingSeconds].value == 0U) ?
+                                 (uint8_t)TetrisSecondsOff :
+                                 (uint8_t)(TetrisSecondsClassic + s[TetrisSettingSecondsStyle].value);
     instance->look.still = s[TetrisSettingAnimation].value == 0U;
 }
 
@@ -432,13 +437,15 @@ static void tetris_settings_init(Tetris* instance) {
     s[TetrisSettingColour] = (AppShellSetting){
         "Colour", tetris_colour_labels, COUNT_OF(tetris_colour_labels), TetrisColourClassic};
     s[TetrisSettingHour24] =
-        (AppShellSetting){"24-hour", tetris_hour24_labels, COUNT_OF(tetris_hour24_labels), 1U};
+        (AppShellSetting){"Time", tetris_hour24_labels, COUNT_OF(tetris_hour24_labels), 1U};
     s[TetrisSettingSpeed] =
         (AppShellSetting){"Speed", tetris_speed_labels, COUNT_OF(tetris_speed_labels), 2U};
     s[TetrisSettingColon] = (AppShellSetting){
         "Colon", tetris_colon_labels, COUNT_OF(tetris_colon_labels), TetrisColonBlink};
-    s[TetrisSettingSeconds] = (AppShellSetting){
-        "Seconds", tetris_seconds_labels, COUNT_OF(tetris_seconds_labels), TetrisSecondsQuick};
+    s[TetrisSettingSeconds] =
+        (AppShellSetting){"Seconds", tetris_seconds_labels, COUNT_OF(tetris_seconds_labels), 1U};
+    s[TetrisSettingSecondsStyle] = (AppShellSetting){
+        "Sec anim", tetris_seconds_style_labels, COUNT_OF(tetris_seconds_style_labels), 1U};
     s[TetrisSettingAnimation] = (AppShellSetting){
         "Animation", tetris_animation_labels, COUNT_OF(tetris_animation_labels), 1U};
 
