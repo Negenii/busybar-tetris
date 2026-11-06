@@ -1,3 +1,6 @@
+build/
+dist/
 app/tests/tetris_render_test
 app/tests/*.ppm
-dist/
+app/tests/*.png
+.DS_Store

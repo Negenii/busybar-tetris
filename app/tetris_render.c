@@ -209,7 +209,7 @@ const TetrisCover* tetris_covers(void) {
 #define TOP       ((TETRIS_PANEL_H - TETRIS_DIGIT_H) / 2)
 #define COLON_X   (LEFT + 2 * TETRIS_DIGIT_W + DIGIT_GAP + COLON_GAP)
 
-/* SPIKE: hh:mm:ss, six digits of six, the same gaps, two colons: 62 wide, 5 dark either side */
+/* hh:mm:ss, six digits of six, the same gaps, two colons: 62 wide, 5 dark either side */
 #define LEFT6 ((TETRIS_PANEL_W - (6 * TETRIS_DIGIT_W + 3 * DIGIT_GAP + 2 * (2 * COLON_GAP + COLON_W))) / 2)
 #define PAIR6 (2 * TETRIS_DIGIT_W + DIGIT_GAP + 2 * COLON_GAP + COLON_W)
 static const int digit_x6[6] = {
@@ -303,7 +303,7 @@ static const TetrisCover* cover_of(const TetrisColumn* col) {
     return all ? &all[(col->value > 9U) ? 9U : col->value] : NULL;
 }
 
-/* SPIKE: the seconds' quick builds. A wave is every piece whose bottom row is
+/* the seconds' quick builds. A wave is every piece whose bottom row is
  * in the same band, counted from the floor; a wave's pieces fall together. */
 static bool fast_style(uint8_t style) {
     return (style == TetrisSecondsQuick) || (style == TetrisSecondsQuicker) ||
@@ -439,7 +439,7 @@ static void column_change_to(TetrisColumn* col, uint8_t value, bool fast) {
     col->next = want;
     col->at_ms = 0U;
     if(fast) {
-        /* SPIKE: no slide out; the old digit is gone and the new one lands in waves */
+        /* no slide out; the old digit is gone and the new one lands in waves */
         col->value = want;
         col->landed = 0U;
         col->wave = 0U;

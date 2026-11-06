@@ -33,7 +33,7 @@
 
 #define TETRIS_SETTINGS_DIR   "/ext/apps_data/tetris"
 #define TETRIS_SETTINGS_PATH  TETRIS_SETTINGS_DIR "/settings"
-#define TETRIS_SETTINGS_MAGIC (0x3454U) /* "T4" (spike): one byte per Setup row */
+#define TETRIS_SETTINGS_MAGIC (0x3454U) /* "T4": one byte per Setup row */
 
 typedef enum {
     TetrisCustomEventBack = 1UL << 0,
@@ -63,7 +63,7 @@ static const char* tetris_hour24_labels[] = {"12h", "24h"};
 static const char* tetris_speed_labels[] = {"Slowest", "Slow", "Medium", "Fast", "Fastest"};
 static const char* tetris_colon_labels[] = {"Blink", "Solid", "Off"};
 static const char* tetris_seconds_labels[] = {"Hide", "Show"};
-/* the seconds' animation, in TetrisSeconds order after Off (spike) */
+/* the seconds' animation, in TetrisSeconds order after Off */
 static const char* tetris_seconds_style_labels[] = {"Classic", "Quick", "Quicker", "Snap"};
 static const char* tetris_animation_labels[] = {"Off", "On"};
 /* The TC002 speed byte for each step; Medium is its default. */
